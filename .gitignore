@@ -1,0 +1,21 @@
+# Kubernetes / Helm
+kubeconfig
+*.kubeconfig
+kubeconfig*.yaml
+charts/
+*.tgz
+
+# Secrets / local overrides
+*.local.yaml
+secrets.yaml
+.env
+
+# k6 / результаты прогона (summary коммитим вручную в docs/)
+*.bin
+results/
+
+# OS / редакторы
+.DS_Store
+.idea/
+.vscode/
+*.swp

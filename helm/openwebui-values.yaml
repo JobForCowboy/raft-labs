@@ -1,0 +1,43 @@
+# Values для официального chart open-webui/open-webui
+# helm repo add open-webui https://helm.openwebui.com/
+# helm upgrade --install openwebui open-webui/open-webui -n llm-stand -f helm/openwebui-values.yaml
+#
+# OpenWebUI знает только LiteLLM и считает его OpenAI-совместимым API.
+# Обе модели появляются в UI, т.к. OpenWebUI запрашивает GET /v1/models у LiteLLM.
+
+# Выключаем встроенный Ollama-сабчарт — ходим строго через LiteLLM, а не напрямую в Ollama.
+ollama:
+  enabled: false
+# Pipelines не нужны.
+pipelines:
+  enabled: false
+
+# Включаем OpenAI-совместимый канал и направляем его на LiteLLM.
+enableOpenaiApi: true
+# Внутренний DNS-адрес сервиса LiteLLM в том же namespace.
+openaiBaseApiUrls:
+  - http://litellm:4000/v1
+# Кол-во и порядок ключей должны совпадать с openaiBaseApiUrls.
+# Значение = masterkey из helm/litellm-values.yaml.
+openaiApiKeys:
+  - sk-stand-1234
+
+# История чатов переживает рестарт пода.
+persistence:
+  enabled: true
+  size: 2Gi
+  # Пусто => default StorageClass TimeWeb. При отсутствии default укажите явно.
+  storageClass: ""
+
+# UI доступен по внешнему IP LoadBalancer.
+service:
+  type: LoadBalancer
+  port: 80
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

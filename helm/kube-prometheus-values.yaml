@@ -1,0 +1,48 @@
+# Values для chart prometheus-community/kube-prometheus-stack
+# helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+# helm upgrade --install monitoring prometheus-community/kube-prometheus-stack -n monitoring --create-namespace -f helm/kube-prometheus-values.yaml
+#
+# Observability — отдельная плоскость: Prometheus собирает метрики опросом подов
+# (cAdvisor/kubelet), Grafana визуализирует. Из коробки есть дашборды по подам
+# (CPU/RAM), что покрывает минимум ДоД — метрики подов Ollama под нагрузкой.
+
+grafana:
+  adminPassword: admin-stand-1234
+  # Grafana по внешнему IP LoadBalancer.
+  service:
+    type: LoadBalancer
+    port: 80
+  # Дашборды/настройки переживают рестарт.
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClassName: ""   # пусто => default StorageClass TimeWeb
+
+prometheus:
+  prometheusSpec:
+    # Скромное хранилище метрик под маленький узел.
+    retention: 7d
+    # История метрик переживает рестарт пода.
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          # storageClassName: ""  # пусто => default StorageClass TimeWeb
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    # Подхватывать ServiceMonitor/PodMonitor во всех namespace
+    # (на случай, если позже включим /metrics у LiteLLM как бонус).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+# Alertmanager на тестовом стенде не нужен — экономим ресурсы узла.
+alertmanager:
+  enabled: false

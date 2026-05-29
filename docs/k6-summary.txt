@@ -1,0 +1,11 @@
+ПЛЕЙСХОЛДЕР. Сюда k6 запишет summary автоматически при прогоне
+(handleSummary в loadtest/load.js пишет в docs/k6-summary.txt).
+
+Запуск:
+  make loadtest BASE_URL=http://<LITELLM_LB_IP>:4000
+
+После прогона здесь будут ключевые цифры:
+  - http_req_duration ... p(50)= / p(95)= / p(99)=
+  - http_reqs ......... RPS (throughput)
+  - http_req_failed ... error rate
+  - chat_latency_ms ... latency запросов к моделям (кастомная метрика)

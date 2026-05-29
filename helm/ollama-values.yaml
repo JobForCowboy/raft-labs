@@ -1,0 +1,52 @@
+# Values для chart otwld/ollama
+# helm repo add otwld https://helm.otwld.com/
+# helm upgrade --install ollama otwld/ollama -n llm-stand -f helm/ollama-values.yaml
+#
+# Ollama хостит обе on-prem модели и гоняет инференс на CPU.
+# Внутренний сервис: http://ollama:11434 (по нему ходит LiteLLM).
+
+replicaCount: 1
+
+ollama:
+  # GPU не используем — инференс на CPU.
+  gpu:
+    enabled: false
+  # Модели тянутся при старте контейнера и кэшируются на PVC.
+  # При рестарте пода НЕ перекачиваются (лежат в /root/.ollama на томе).
+  models:
+    pull:
+      - qwen2.5:0.5b
+      - llama3.2:1b
+
+# Service остаётся внутренним (ClusterIP) — наружу Ollama не выставляем,
+# к нему ходит только LiteLLM по DNS-имени сервиса.
+service:
+  type: ClusterIP
+  port: 11434
+
+# Persistence: модели переживают рестарт пода и остановку/запуск кластера.
+persistentVolume:
+  enabled: true
+  size: 12Gi
+  # Пусто => используется default StorageClass TimeWeb (CSI).
+  # Если default НЕ помечен (kubectl get storageclass), укажите имя явно, напр.:
+  # storageClass: "fast-ssd"
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+# Узел 4 vCPU / 8Gi — оставляем место под LiteLLM/OpenWebUI/мониторинг.
+# Инференс упирается в CPU, поэтому даём ему основную долю ядер.
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "3"
+    memory: 5Gi
+
+# Модели грузятся не мгновенно — щадящие пробы, чтобы под не убивали при прогреве.
+livenessProbe:
+  initialDelaySeconds: 60
+readinessProbe:
+  initialDelaySeconds: 30

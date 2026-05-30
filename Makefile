@@ -1,6 +1,9 @@
 # Makefile — тонкая обёртка над helm-командами для стенда OpenWebUI → LiteLLM → Ollama.
 # Предполагается, что KUBECONFIG указывает на кластер TimeWeb и helm/kubectl установлены.
 #
+# Перед deploy создайте файл с секретами (он gitignored):
+#   cp helm/secrets.example.yaml helm/secrets.local.yaml
+#
 #   make repos          # добавить helm-репозитории
 #   make deploy-all     # развернуть весь стек снизу вверх
 #   make ips            # внешние IP LoadBalancer-сервисов
@@ -9,6 +12,7 @@
 
 NS        ?= llm-stand
 MON_NS    ?= monitoring
+# Должен совпадать с masterkey из helm/secrets.local.yaml.
 API_KEY   ?= sk-stand-1234
 
 .PHONY: repos namespace deploy-ollama deploy-litellm deploy-openwebui deploy-monitoring \
@@ -29,15 +33,15 @@ deploy-ollama: namespace
 
 deploy-litellm: namespace
 	helm upgrade --install litellm oci://ghcr.io/berriai/litellm-helm \
-		-n $(NS) -f helm/litellm-values.yaml --wait --timeout 10m
+		-n $(NS) -f helm/litellm-values.yaml -f helm/secrets.local.yaml --wait --timeout 10m
 
 deploy-openwebui: namespace
 	helm upgrade --install openwebui open-webui/open-webui \
-		-n $(NS) -f helm/openwebui-values.yaml --wait --timeout 10m
+		-n $(NS) -f helm/openwebui-values.yaml -f helm/secrets.local.yaml --wait --timeout 10m
 
 deploy-monitoring:
 	helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
-		-n $(MON_NS) --create-namespace -f helm/kube-prometheus-values.yaml --wait --timeout 10m
+		-n $(MON_NS) --create-namespace -f helm/kube-prometheus-values.yaml -f helm/secrets.local.yaml --wait --timeout 10m
 
 # Снизу вверх: сначала инференс, потом прокси, потом UI, затем мониторинг.
 deploy-all: repos deploy-ollama deploy-litellm deploy-openwebui deploy-monitoring

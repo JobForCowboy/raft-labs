@@ -7,7 +7,8 @@
 # (CPU/RAM), что покрывает минимум ДоД — метрики подов Ollama под нагрузкой.
 
 grafana:
-  adminPassword: admin-stand-1234
+  # adminPassword вынесен в helm/secrets.local.yaml (gitignored), передаётся вторым -f.
+  # Шаблон — в helm/secrets.example.yaml. Логин admin / пароль оттуда.
   # Grafana по внешнему IP LoadBalancer.
   service:
     type: LoadBalancer

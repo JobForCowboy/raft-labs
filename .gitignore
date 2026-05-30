@@ -2,6 +2,9 @@
 kubeconfig
 *.kubeconfig
 kubeconfig*.yaml
+# TimeWeb kubeconfig (содержит креды/токен кластера — НИКОГДА не коммитить, репо публичный)
+twc-*-config.yaml
+*-config.yaml
 charts/
 *.tgz
 

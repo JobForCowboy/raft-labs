@@ -68,7 +68,9 @@ Grafana     ──query──→  Prometheus
 │   ├── ollama-values.yaml
 │   ├── litellm-values.yaml        # proxy_config с model_list на обе модели; Postgres отключён
 │   ├── openwebui-values.yaml
-│   └── kube-prometheus-values.yaml
+│   ├── kube-prometheus-values.yaml
+│   ├── secrets.example.yaml       # шаблон секретов (в гите)
+│   └── secrets.local.yaml         # реальные секреты — gitignored, создаётся через cp
 ├── loadtest/
 │   └── load.js                    # k6: ramp 1→5→10→20, чередование моделей
 ├── docs/
@@ -102,6 +104,15 @@ Grafana     ──query──→  Prometheus
 ## Развёртывание
 
 Снизу вверх — каждый слой проверяется до следующего.
+
+Сначала создайте файл с секретами (он в `.gitignore`, в репозиторий не попадает):
+
+```bash
+cp helm/secrets.example.yaml helm/secrets.local.yaml   # при желании поменяйте значения
+```
+
+`secrets.local.yaml` держит `masterkey` (LiteLLM), `openaiApiKeys` (OpenWebUI) и
+`grafana.adminPassword`; Makefile передаёт его вторым `-f` в соответствующие релизы.
 
 ```bash
 make repos          # helm repo add + update

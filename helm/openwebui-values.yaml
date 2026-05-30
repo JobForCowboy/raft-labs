@@ -17,10 +17,9 @@ enableOpenaiApi: true
 # Внутренний DNS-адрес сервиса LiteLLM в том же namespace.
 openaiBaseApiUrls:
   - http://litellm:4000/v1
-# Кол-во и порядок ключей должны совпадать с openaiBaseApiUrls.
-# Значение = masterkey из helm/litellm-values.yaml.
-openaiApiKeys:
-  - sk-stand-1234
+# openaiApiKeys вынесены в helm/secrets.local.yaml (gitignored), передаётся вторым -f.
+# Шаблон — в helm/secrets.example.yaml. Кол-во/порядок ключей = openaiBaseApiUrls выше,
+# значение = masterkey LiteLLM.
 
 # История чатов переживает рестарт пода.
 persistence:

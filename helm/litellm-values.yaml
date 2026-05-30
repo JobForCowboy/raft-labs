@@ -18,9 +18,9 @@ db:
   deployStandalone: false
   useExisting: false
 
-# master key — единый ключ, с которым ходят OpenWebUI и k6 (Authorization: Bearer ...).
-# Для тестового стенда фиксируем; в проде вынести в Secret.
-masterkey: sk-stand-1234
+# master key вынесен в helm/secrets.local.yaml (gitignored), передаётся вторым -f.
+# Шаблон значения — в helm/secrets.example.yaml. Это тот же ключ, что в openwebui
+# (openaiApiKeys) и k6 (API_KEY). Без secrets.local.yaml релиз поднимется без masterkey.
 
 # Содержимое рендерится chart-ом в config.yaml прокси.
 proxy_config:

@@ -50,9 +50,13 @@ Ollama → LiteLLM → OpenWebUI → monitoring. Это отражено в по
   достаточно, чтобы LiteLLM их объявил.
 - **api_base в LiteLLM** (`http://ollama:11434`) — это DNS-имя Service Ollama в том же namespace.
   Модели объявлены с префиксом `ollama_chat/` — корректный chat-эндпоинт для `/v1/chat/completions`.
-- **masterkey** `sk-stand-1234` повторяется в трёх местах: `litellm-values.yaml` (`masterkey`),
-  `openwebui-values.yaml` (`openaiApiKeys`), и как `API_KEY` для k6. Меняешь — меняй везде.
+- **masterkey** вынесен из values в `helm/secrets.local.yaml` (gitignored; шаблон —
+  `helm/secrets.example.yaml`). Один файл держит три согласованных значения: `masterkey`
+  (LiteLLM), `openaiApiKeys` (OpenWebUI), `grafana.adminPassword`. Makefile передаёт его
+  вторым `-f` в `deploy-litellm/openwebui/monitoring` (last wins). Для k6 то же значение —
+  `API_KEY` в Makefile/`-e`. Меняешь ключ — меняй в `secrets.local.yaml` и `API_KEY`.
   OpenWebUI ходит в LiteLLM по `openaiBaseApiUrls: http://litellm:4000/v1`.
+  Без `secrets.local.yaml` (`cp` из example) релизы поднимутся, но без masterkey/пароля Grafana.
 
 Две намеренные «ловушки», уже обойдённые в values (не откатывать без причины):
 

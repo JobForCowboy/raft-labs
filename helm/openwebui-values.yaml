@@ -21,6 +21,11 @@ openaiBaseApiUrls:
 # Шаблон — в helm/secrets.example.yaml. Кол-во/порядок ключей = openaiBaseApiUrls выше,
 # значение = masterkey LiteLLM.
 
+# Внешний URL — чтобы OpenWebUI строил абсолютные ссылки/редиректы для HTTPS за ingress.
+extraEnvVars:
+  - name: WEBUI_URL
+    value: https://chat.raft.rootcrops.tech
+
 # История чатов переживает рестарт пода.
 persistence:
   enabled: true
@@ -28,10 +33,26 @@ persistence:
   # На TimeWeb default StorageClass нет — указываем сетевой диск CSI явно.
   storageClass: "nvme.network-drives.csi.timeweb.cloud"
 
-# UI доступен по внешнему IP LoadBalancer.
+# Наружу НЕ торчим своим LoadBalancer'ом — ходим через общий ingress-nginx (один LB на кластер).
+# Сервис остаётся внутренним, ingress ниже публикует его на chat.raft.rootcrops.tech.
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
+
+# Ingress: публикует OpenWebUI на chat.raft.rootcrops.tech через ingress-nginx,
+# TLS-сертификат Let's Encrypt выпускает cert-manager (annotation cluster-issuer).
+ingress:
+  enabled: true
+  class: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Инференс на CPU доходит до ~65 с — поднимаем таймауты nginx, иначе 504.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+  host: chat.raft.rootcrops.tech
+  tls: true
+  # Секрет с TLS-сертификатом — cert-manager создаст и наполнит его сам по annotation выше.
+  existingSecret: chat-raft-tls
 
 # 512Mi мало — OpenWebUI OOMKilled (рантайм держит ~0.5Gi уже в простое). Даём 1Gi.
 resources:

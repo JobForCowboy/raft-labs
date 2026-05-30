@@ -44,10 +44,33 @@ proxy_config:
     # /metrics в формате Prometheus (эндпоинт прокси). Опционально.
     store_model_in_db: false
 
-# LoadBalancer: k6 бьёт по внешнему IP :4000, port-forward не нужен.
+# Наружу НЕ торчим своим LoadBalancer'ом — ходим через общий ingress-nginx (один LB на кластер).
+# Внутри кластера сервис остаётся на :4000 (по нему ходит OpenWebUI), наружу — ingress ниже.
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 4000
+
+# Ingress: публикует LiteLLM API на llm.raft.rootcrops.tech (цель k6), TLS — cert-manager.
+# ВНИМАНИЕ: API защищён только masterkey. Чтобы не светить его в интернет, можно сузить доступ:
+#   nginx.ingress.kubernetes.io/whitelist-source-range: "<твой-CIDR>"
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Инференс на CPU доходит до ~65 с — поднимаем таймауты nginx, иначе 504.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+  hosts:
+    - host: llm.raft.rootcrops.tech
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    # cert-manager создаст и наполнит этот секрет по annotation cluster-issuer выше.
+    - secretName: llm-raft-tls
+      hosts:
+        - llm.raft.rootcrops.tech
 
 # Прокси OOMKilled на старте при 512Mi и 1Gi (gunicorn поднимает несколько воркеров,
 # каждый грузит приложение). Даём 2Gi — на ноде ~3.8Gi свободно хватает.

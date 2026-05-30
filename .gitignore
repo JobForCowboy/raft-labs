@@ -10,6 +10,8 @@ charts/
 
 # Secrets / local overrides
 *.local.yaml
+*.local.md
+CREDENTIALS.local.md
 secrets.yaml
 .env
 

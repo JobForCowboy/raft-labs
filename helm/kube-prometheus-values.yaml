@@ -9,10 +9,29 @@
 grafana:
   # adminPassword вынесен в helm/secrets.local.yaml (gitignored), передаётся вторым -f.
   # Шаблон — в helm/secrets.example.yaml. Логин admin / пароль оттуда.
-  # Grafana по внешнему IP LoadBalancer.
+  # Наружу НЕ торчим своим LoadBalancer'ом — ходим через общий ingress-nginx (один LB на кластер).
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 80
+  # Ingress: публикует Grafana на grafana.raft.rootcrops.tech через ingress-nginx, TLS — cert-manager.
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - grafana.raft.rootcrops.tech
+    path: /
+    tls:
+      # cert-manager создаст и наполнит этот секрет по annotation cluster-issuer выше.
+      - secretName: grafana-raft-tls
+        hosts:
+          - grafana.raft.rootcrops.tech
+  # Grafana за ingress по своему домену — чтобы редиректы/ссылки строились правильно.
+  grafana.ini:
+    server:
+      domain: grafana.raft.rootcrops.tech
+      root_url: https://grafana.raft.rootcrops.tech
   # Дашборды/настройки переживают рестарт.
   persistence:
     enabled: true

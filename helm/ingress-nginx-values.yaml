@@ -1,0 +1,33 @@
+# Values для chart ingress-nginx/ingress-nginx
+# helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+# helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+#   -n ingress-nginx --create-namespace -f helm/ingress-nginx-values.yaml
+#
+# Это ЕДИНСТВЕННЫЙ LoadBalancer в кластере. Раньше наружу торчали три LB
+# (litellm/openwebui/grafana) и упирались в квоту TimeWeb — теперь все три приложения
+# ходят через один ingress по разным host'ам (chat./grafana./llm.raft.rootcrops.tech),
+# а TLS выпускает cert-manager (см. helm/cert-manager-values.yaml, manifests/cluster-issuer.yaml).
+
+controller:
+  # Единственный внешний вход. External-IP этого сервиса — то самое значение,
+  # на которое пользователь заводит wildcard-запись *.raft.rootcrops.tech (A).
+  service:
+    type: LoadBalancer
+    # TimeWeb может фильтровать фронтенд LB по IP. Для работы HTTP-01 (Let's Encrypt
+    # должен достучаться на :80) и публичного доступа фронтенд должен быть открыт
+    # на 0.0.0.0/0 — проверить в панели; при необходимости добавить сюда annotations.
+    # annotations: {}
+
+  # Имя IngressClass, на который ссылаются ingress'ы приложений и solver ClusterIssuer.
+  ingressClassResource:
+    name: nginx
+    enabled: true
+    default: false
+
+  # ВАЖНО про TimeWeb LB: в его конфиге (annotation k8s.timeweb.cloud/lb-last-config)
+  # стоит "is_use_proxy": false — балансировщик НЕ шлёт PROXY protocol, поэтому
+  # use-proxy-protocol на контроллере включать НЕЛЬЗЯ (иначе nginx ждёт заголовок,
+  # которого нет). Пометка "(Proxy)" у IP в `kubectl get svc` — это про ipMode/kube-proxy,
+  # а не про wire-формат. Оставляем дефолт (proxy protocol выключен).
+
+  # Запас по ресурсам не нужен — это лёгкий прокси. Дефолтов чарта хватает.

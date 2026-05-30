@@ -6,29 +6,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Воспроизводимый стенд в managed Kubernetes (TimeWeb Cloud): тракт **OpenWebUI → LiteLLM → Ollama**
 с двумя on-prem моделями (`qwen2.5:0.5b`, `llama3.2:1b`) на CPU, плюс observability
-(kube-prometheus-stack) и нагрузочный тест (k6). Это **не приложение с исходниками** —
-репозиторий содержит только конфигурацию деплоя: `values` для готовых upstream Helm-чартов,
-k6-скрипт и README. Своих Helm-шаблонов/манифестов здесь нет и не должно быть — кастомизация
-идёт исключительно через `helm/*-values.yaml`.
+(kube-prometheus-stack) и нагрузочный тест (k6). Снаружи всё закрыто **одним** LoadBalancer
+(ingress-nginx) с host-роутингом и автоматическим TLS Let's Encrypt (cert-manager). Это
+**не приложение с исходниками** — репозиторий содержит только конфигурацию деплоя: `values`
+для готовых upstream Helm-чартов, k6-скрипт и README. Кастомизация идёт через `helm/*-values.yaml`;
+единственное исключение — `manifests/cluster-issuer.yaml` (CRD cert-manager, у которого нет
+chart-эквивалента).
 
 ## Команды
 
 Требуются `kubectl`, `helm` (v3.8+, для OCI-чартов), `k6`; `KUBECONFIG` указывает на кластер.
 
 ```bash
-make repos          # helm repo add + update (otwld, open-webui, prometheus-community)
-make deploy-all     # развернуть весь стек снизу вверх (ollama→litellm→openwebui→monitoring)
-make deploy-ollama  # отдельный слой (deploy-litellm / deploy-openwebui / deploy-monitoring)
-make ips            # внешние IP LoadBalancer-сервисов
-make loadtest BASE_URL=http://<LITELLM_LB_IP>:4000   # прогон k6
-make teardown       # снести релизы и namespace
+make repos            # helm repo add + update (otwld, open-webui, prometheus-community, ingress-nginx, jetstack)
+make deploy-platform  # ingress-nginx (единственный LB) + cert-manager + ClusterIssuer — ДО приложений
+make deploy-all       # платформа → стек снизу вверх (ollama→litellm→openwebui→monitoring)
+make deploy-ollama    # отдельный слой (deploy-litellm / deploy-openwebui / deploy-monitoring)
+make ips              # внешний IP единственного LoadBalancer (цель wildcard DNS)
+make urls             # публичные HTTPS-адреса chat./grafana./llm.raft.rootcrops.tech
+make certs            # статус выпуска TLS-сертификатов (READY=True)
+make loadtest BASE_URL=https://llm.raft.rootcrops.tech   # прогон k6
+make teardown         # снести релизы, платформу и namespace
 ```
 
-Переменные Makefile: `NS=llm-stand`, `MON_NS=monitoring`, `API_KEY=sk-stand-1234`.
+Переменные Makefile: `NS=llm-stand`, `MON_NS=monitoring`, `ING_NS=ingress-nginx`,
+`CM_NS=cert-manager`, `API_KEY=sk-stand-1234`.
 
 Запуск k6 напрямую (минуя Makefile):
 ```bash
-k6 run -e BASE_URL=http://<LITELLM_LB_IP>:4000 -e API_KEY=sk-stand-1234 loadtest/load.js
+k6 run -e BASE_URL=https://llm.raft.rootcrops.tech -e API_KEY=sk-stand-1234 loadtest/load.js
 ```
 
 Локальная проверка артефактов без кластера:
@@ -40,7 +46,20 @@ node --check loadtest/load.js                                                   
 ## Архитектура и неочевидные связи
 
 Слои деплоятся **строго снизу вверх** (так задумано: отладка остаётся локальной для слоя):
-Ollama → LiteLLM → OpenWebUI → monitoring. Это отражено в порядке зависимостей `make deploy-all`.
+платформа (ingress-nginx + cert-manager) → Ollama → LiteLLM → OpenWebUI → monitoring.
+Это отражено в порядке зависимостей `make deploy-all`.
+
+**Сетевой вход — один LoadBalancer.** Раньше каждый из трёх сервисов (litellm/openwebui/grafana)
+просил свой LB и упирался в квоту TimeWeb. Теперь сервисы — `ClusterIP`, а наружу торчит только
+ingress-nginx (один LB). Три Ingress'а создаются **из values самих чартов** (`ingress.*` у
+open-webui/litellm, `grafana.ingress.*` у kube-prometheus-stack) — конвенция «только values»
+сохранена. Хосты: `chat.` (OpenWebUI), `grafana.`, `llm.` (LiteLLM API/k6) под
+`*.raft.rootcrops.tech`. **Критичный порядок:** платформа → завести wildcard DNS на IP её LB
+(`make ips`) → приложения. HTTP-01 не выпустит сертификат, пока хост не резолвится в этот IP,
+а фронтенд LB TimeWeb должен быть открыт снаружи на :80/:443 (иначе challenge зависнет).
+TLS-секреты (`chat-raft-tls`/`grafana-raft-tls`/`llm-raft-tls`) создаёт cert-manager сам по
+annotation `cert-manager.io/cluster-issuer: letsencrypt-prod`. На litellm/openwebui стоят
+аннотации `proxy-read/send-timeout: 300` — CPU-инференс доходит до ~65 с, дефолтные 60 с дают 504.
 
 Сцепка значений, которую легко сломать при правках — **три места должны быть согласованы**:
 
@@ -68,14 +87,18 @@ Ollama → LiteLLM → OpenWebUI → monitoring. Это отражено в по
 
 ## Конвенции стенда
 
-- **Доступ — через `LoadBalancer`** (TimeWeb тарифицирует каждый LB). port-forward оставлен
-  закомментированным fallback'ом в `Makefile`. При teardown проверять, что LB удалены:
-  `kubectl get svc -A | grep LoadBalancer`.
+- **Доступ — через один ingress-nginx LoadBalancer** (TimeWeb тарифицирует каждый LB, поэтому
+  держим ровно один). Сервисы приложений — `ClusterIP`. port-forward оставлен закомментированным
+  fallback'ом в `Makefile`. При teardown проверять, что LB удалён: `kubectl get svc -A | grep LoadBalancer`.
+- **Свои манифесты — только `manifests/cluster-issuer.yaml`** (ClusterIssuer LE, HTTP-01). Это
+  единственное исключение из «кастомизация только через values»: у CRD cert-manager нет
+  chart-эквивалента. Makefile применяет его `kubectl apply` в `deploy-cert-manager`.
 - **StorageClass** в values оставлен пустым (`""`) => default TimeWeb CSI. Если в кластере нет
   default-класса, задавать `storageClass`/`storageClassName` явно (в файлах есть комментарии где).
 - **Persistence** включена для Ollama (модели), Prometheus (метрики), Grafana (дашборды) —
   переживает рестарт пода. При полном удалении кластера тома могут уйти вместе с ним.
-- **k6 бьёт напрямую в LiteLLM**, а не через OpenWebUI — это узкое место тракта (CPU-инференс).
-  `handleSummary` пишет результат в `docs/k6-summary.txt` автоматически.
+- **k6 бьёт напрямую в LiteLLM** (`https://llm.raft.rootcrops.tech` через ingress), а не через
+  OpenWebUI — это узкое место тракта (CPU-инференс). `handleSummary` пишет результат в
+  `docs/k6-summary.txt` автоматически.
 - README ведётся **инкрементально** как итог реальных команд — при изменении деплоя обновлять
   соответствующие шаги.

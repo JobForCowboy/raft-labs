@@ -1,0 +1,14 @@
+# Values для chart jetstack/cert-manager
+# helm repo add jetstack https://charts.jetstack.io
+# helm upgrade --install cert-manager jetstack/cert-manager \
+#   -n cert-manager --create-namespace -f helm/cert-manager-values.yaml
+#
+# cert-manager автоматически выпускает и продлевает TLS-сертификаты Let's Encrypt
+# для ingress'ов приложений. Издатель (ClusterIssuer letsencrypt-prod, HTTP-01)
+# лежит отдельным манифестом: manifests/cluster-issuer.yaml (его применяет Makefile
+# после установки чарта). Сами сертификаты создаются автоматически из annotation
+# cert-manager.io/cluster-issuer на ingress'ах (см. helm/*-values.yaml).
+
+# Ставим CRD вместе с чартом — иначе ClusterIssuer/Certificate не зарегистрируются.
+crds:
+  enabled: true

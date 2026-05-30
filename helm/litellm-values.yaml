@@ -49,10 +49,12 @@ service:
   type: LoadBalancer
   port: 4000
 
+# Прокси OOMKilled на старте при 512Mi и 1Gi (gunicorn поднимает несколько воркеров,
+# каждый грузит приложение). Даём 2Gi — на ноде ~3.8Gi свободно хватает.
 resources:
   requests:
-    cpu: 100m
-    memory: 256Mi
+    cpu: 250m
+    memory: 1Gi
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: "1"
+    memory: 2Gi

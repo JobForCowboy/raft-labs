@@ -28,22 +28,22 @@ service:
 persistentVolume:
   enabled: true
   size: 12Gi
-  # Пусто => используется default StorageClass TimeWeb (CSI).
-  # Если default НЕ помечен (kubectl get storageclass), укажите имя явно, напр.:
-  # storageClass: "fast-ssd"
-  storageClass: ""
+  # На TimeWeb default StorageClass нет — указываем сетевой диск CSI явно.
+  # Классы: nvme.network-drives.csi.timeweb.cloud / hdd.network-drives.csi.timeweb.cloud.
+  # (CSI ставится в панели: Дополнения → CSI-driver.)
+  storageClass: "nvme.network-drives.csi.timeweb.cloud"
   accessModes:
     - ReadWriteOnce
 
-# Узел 4 vCPU / 8Gi — оставляем место под LiteLLM/OpenWebUI/мониторинг.
-# Инференс упирается в CPU, поэтому даём ему основную долю ядер.
+# Ноды TimeWeb: 2 vCPU / ~4Gi каждая. Под держим в пределах одной ноды.
+# Инференс упирается в CPU — отдаём ему основную долю ядер, mem-limit ниже размера ноды.
 resources:
   requests:
     cpu: "1"
-    memory: 2Gi
+    memory: 1536Mi
   limits:
-    cpu: "3"
-    memory: 5Gi
+    cpu: "2"
+    memory: 3Gi
 
 # Модели грузятся не мгновенно — щадящие пробы, чтобы под не убивали при прогреве.
 livenessProbe:

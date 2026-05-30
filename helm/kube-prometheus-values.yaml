@@ -17,7 +17,7 @@ grafana:
   persistence:
     enabled: true
     size: 2Gi
-    storageClassName: ""   # пусто => default StorageClass TimeWeb
+    storageClassName: "nvme.network-drives.csi.timeweb.cloud"   # TimeWeb: default-класса нет
 
 prometheus:
   prometheusSpec:
@@ -27,7 +27,7 @@ prometheus:
     storageSpec:
       volumeClaimTemplate:
         spec:
-          # storageClassName: ""  # пусто => default StorageClass TimeWeb
+          storageClassName: "nvme.network-drives.csi.timeweb.cloud"  # TimeWeb: default-класса нет
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:

@@ -19,6 +19,9 @@ secrets.yaml
 *.bin
 results/
 
+# Локальное состояние Claude Code (планы/настройки агента — не для публичного репо)
+.claude/
+
 # OS / редакторы
 .DS_Store
 .idea/

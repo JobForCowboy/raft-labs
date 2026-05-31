@@ -61,6 +61,11 @@ deploy-openwebui: namespace
 deploy-monitoring:
 	helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
 		-n $(MON_NS) --create-namespace -f helm/kube-prometheus-values.yaml -f helm/secrets.local.yaml --wait --timeout 10m
+	@echo "== Загружаем дашборд стенда как код (sidecar Grafana подхватит ConfigMap с меткой grafana_dashboard=1) =="
+	kubectl create configmap llm-stand-dashboard --from-file=dashboards/llm-stand.json \
+		-n $(MON_NS) --dry-run=client -o yaml \
+		| kubectl label --local -f - grafana_dashboard=1 -o yaml \
+		| kubectl apply -f -
 
 # Снизу вверх: сначала платформа (ingress+TLS), потом инференс, прокси, UI, мониторинг.
 # ВАЖНО: между deploy-platform и приложениями заведите wildcard DNS *.raft.rootcrops.tech
@@ -94,6 +99,7 @@ teardown:
 	-helm uninstall openwebui -n $(NS)
 	-helm uninstall litellm -n $(NS)
 	-helm uninstall ollama -n $(NS)
+	-kubectl delete configmap llm-stand-dashboard -n $(MON_NS)
 	-helm uninstall monitoring -n $(MON_NS)
 	-kubectl delete -f manifests/cluster-issuer.yaml
 	-helm uninstall cert-manager -n $(CM_NS)

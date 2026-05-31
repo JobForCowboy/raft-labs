@@ -90,9 +90,16 @@ annotation `cert-manager.io/cluster-issuer: letsencrypt-prod`. На litellm/open
 - **Доступ — через один ingress-nginx LoadBalancer** (TimeWeb тарифицирует каждый LB, поэтому
   держим ровно один). Сервисы приложений — `ClusterIP`. port-forward оставлен закомментированным
   fallback'ом в `Makefile`. При teardown проверять, что LB удалён: `kubectl get svc -A | grep LoadBalancer`.
-- **Свои манифесты — только `manifests/cluster-issuer.yaml`** (ClusterIssuer LE, HTTP-01). Это
-  единственное исключение из «кастомизация только через values»: у CRD cert-manager нет
-  chart-эквивалента. Makefile применяет его `kubectl apply` в `deploy-cert-manager`.
+- **Два узких исключения из «кастомизация только через values»:**
+  1. `manifests/cluster-issuer.yaml` (ClusterIssuer LE, HTTP-01) — у CRD cert-manager нет
+     chart-эквивалента. Makefile применяет его `kubectl apply` в `deploy-cert-manager`.
+  2. **Дашборд `dashboards/llm-stand.json` грузится ConfigMap'ом**, а не через values. `deploy-monitoring`
+     создаёт из JSON-файла ConfigMap с меткой `grafana_dashboard=1` (`kubectl create cm --from-file …
+     | kubectl label --local … | kubectl apply`), который sidecar Grafana (env `LABEL=grafana_dashboard`,
+     `NAMESPACE=ALL`) автоимпортит. Так JSON остаётся единственным источником правды и редактируемым
+     файлом — values-чарта не умеет ссылаться на внешний файл, а инлайнить большой JSON в values грязно.
+     В дашборде datasource задан как template-переменная `${datasource}` (тип datasource) → подхватывает
+     дефолтный Prometheus (uid `prometheus`). `teardown` удаляет этот ConfigMap.
 - **StorageClass** в values оставлен пустым (`""`) => default TimeWeb CSI. Если в кластере нет
   default-класса, задавать `storageClass`/`storageClassName` явно (в файлах есть комментарии где).
 - **Persistence** включена для Ollama (модели), Prometheus (метрики), Grafana (дашборды) —

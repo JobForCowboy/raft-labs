@@ -1,0 +1,39 @@
+# ServiceMonitor для метрик LiteLLM Proxy.
+#
+# Зачем свой манифест, а не serviceMonitor из чарта litellm-helm: у /metrics LiteLLM две
+# особенности, которые чарт не умеет задать —
+#   1) эндпоинт смонтирован на /metrics/ (со слешем; /metrics отдаёт 307-редирект);
+#   2) он за master-key авторизацией (без ключа 401, в т.ч. при прямом scrape пода).
+# Поэтому здесь задаём path: /metrics/ и authorization.credentials с Bearer-токеном из
+# секрета litellm-masterkey (тот же masterkey, что у OpenWebUI/k6). Секрет читает
+# prometheus-operator (у него RBAC secrets:*) и подставляет в конфиг Prometheus —
+# самому Prometheus доступ к секретам в llm-stand не нужен.
+#
+# Метка release: monitoring — чтобы Prometheus из kube-prometheus-stack подхватил монитор.
+# Применяется в `make deploy-litellm` (kubectl apply).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: litellm
+  namespace: llm-stand
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - llm-stand
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: litellm
+      app.kubernetes.io/instance: litellm
+  endpoints:
+    - port: http              # сервис litellm:4000, порт назван "http"
+      path: /metrics/         # со слешем — иначе 307-редирект, который Prometheus не следует
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s
+      authorization:
+        type: Bearer
+        credentials:
+          name: litellm-masterkey
+          key: masterkey

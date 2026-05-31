@@ -82,9 +82,10 @@ Grafana     ──query──→  Prometheus
 │   ├── secrets.example.yaml       # шаблон секретов (в гите)
 │   └── secrets.local.yaml         # реальные секреты — gitignored, создаётся через cp
 ├── manifests/
-│   └── cluster-issuer.yaml        # ClusterIssuer LE (HTTP-01); единственный свой манифест
+│   ├── cluster-issuer.yaml        # ClusterIssuer LE (HTTP-01)
+│   └── litellm-servicemonitor.yaml # ServiceMonitor на /metrics LiteLLM (Bearer-токен)
 ├── loadtest/
-│   └── load.js                    # k6: ramp 1→5→10→20, чередование моделей
+│   └── load.js                    # k6: ramp 1→5→10, стриминг, чередование моделей
 ├── docs/
 │   ├── README.md
 │   ├── screenshots/               # скриншоты UI и Grafana (вручную)
@@ -197,11 +198,26 @@ make loadtest BASE_URL=https://llm.raft.rootcrops.tech
 Профиль: ramp-up VU `1 → 5 → 10`, поочерёдно обе модели, короткий промпт, `stream:true`
 (пик 10 VU и стриминг — чтобы не упираться в idle-таймаут LB, см. «Результаты»).
 Во время прогона смотреть Grafana (`https://grafana.raft.rootcrops.tech`, логин `admin` /
-пароль из `secrets.local.yaml`): дашборд **LLM Stand — ресурсы подов** (`/d/llm-stand-pods`,
+пароль из `secrets.local.yaml`): дашборд **LLM Stand — ресурсы и API** (`/d/llm-stand-pods`,
 грузится как код из `dashboards/llm-stand.json`) либо встроенный
 **Kubernetes / Compute Resources / Namespace (Pods)** → namespace `llm-stand`.
 
 k6 по окончании сам пишет `docs/k6-summary.txt` (p50/p95/p99, RPS, error rate).
+
+### Метрики (что на дашборде)
+
+Дашборд **LLM Stand** собирает три уровня наблюдаемости:
+
+- **Ресурсы подов** (cAdvisor/kube-state): CPU, память, рестарты, готовность подов `ollama`/`litellm`.
+- **HTTP-метрики ingress-nginx** по host'у `llm.raft.rootcrops.tech`: RPS по кодам ответа,
+  латентность p50/p90/p95, доля 5xx — тот же путь, что нагружает k6. Включены через
+  `controller.metrics` + ServiceMonitor (метка `release: monitoring`) в `helm/ingress-nginx-values.yaml`.
+- **App-метрики LiteLLM** (`/metrics` прокси): запросы и токены по моделям, латентность обращения
+  к модели. Эндпоинт у LiteLLM за master-key авторизацией и смонтирован на `/metrics/`, поэтому
+  скрейпится своим `manifests/litellm-servicemonitor.yaml` (path `/metrics/` + Bearer-токен из
+  секрета `litellm-masterkey`; токен оператору отдаёт `authorization.credentials`). Включается
+  `litellm_settings.callbacks: ["prometheus"]` — в образе `main-stable` метрики доступны без
+  enterprise-лицензии.
 
 ---
 

@@ -40,6 +40,10 @@ proxy_config:
     # Метрики LiteLLM — бонус (не критичный путь). Включаем callback;
     # если версия не поддержит — базовые метрики всё равно закрыты cAdvisor'ом.
     drop_params: true
+    # Пытаемся поднять Prometheus-эндпоинт /metrics прокси (запросы/латентность/токены
+    # по моделям). В свежих OSS-сборках LiteLLM это enterprise-фича — если /metrics не
+    # появится, откатываем этот callback (service-метрики берём с ingress-nginx).
+    callbacks: ["prometheus"]
   general_settings:
     # /metrics в формате Prometheus (эндпоинт прокси). Опционально.
     store_model_in_db: false

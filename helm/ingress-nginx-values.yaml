@@ -31,3 +31,14 @@ controller:
   # а не про wire-формат. Оставляем дефолт (proxy protocol выключен).
 
   # Запас по ресурсам не нужен — это лёгкий прокси. Дефолтов чарта хватает.
+
+  # Prometheus-метрики контроллера: RPS, гистограммы латентности и HTTP-коды по каждому
+  # host'у (в т.ч. llm.raft.rootcrops.tech — путь, который нагружает k6). Это
+  # service-level наблюдаемость тракта поверх ресурсных метрик подов.
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      # kube-prometheus-stack скрейпит ServiceMonitor'ы с меткой release своего релиза.
+      additionalLabels:
+        release: monitoring

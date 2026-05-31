@@ -90,7 +90,7 @@ annotation `cert-manager.io/cluster-issuer: letsencrypt-prod`. На litellm/open
 - **Доступ — через один ingress-nginx LoadBalancer** (TimeWeb тарифицирует каждый LB, поэтому
   держим ровно один). Сервисы приложений — `ClusterIP`. port-forward оставлен закомментированным
   fallback'ом в `Makefile`. При teardown проверять, что LB удалён: `kubectl get svc -A | grep LoadBalancer`.
-- **Два узких исключения из «кастомизация только через values»:**
+- **Три узких исключения из «кастомизация только через values»:**
   1. `manifests/cluster-issuer.yaml` (ClusterIssuer LE, HTTP-01) — у CRD cert-manager нет
      chart-эквивалента. Makefile применяет его `kubectl apply` в `deploy-cert-manager`.
   2. **Дашборд `dashboards/llm-stand.json` грузится ConfigMap'ом**, а не через values. `deploy-monitoring`
@@ -100,6 +100,18 @@ annotation `cert-manager.io/cluster-issuer: letsencrypt-prod`. На litellm/open
      файлом — values-чарта не умеет ссылаться на внешний файл, а инлайнить большой JSON в values грязно.
      В дашборде datasource задан как template-переменная `${datasource}` (тип datasource) → подхватывает
      дефолтный Prometheus (uid `prometheus`). `teardown` удаляет этот ConfigMap.
+  3. `manifests/litellm-servicemonitor.yaml` — ServiceMonitor на `/metrics` LiteLLM. serviceMonitor
+     чарта litellm-helm не умеет задать ни `path: /metrics/` (эндпоинт смонтирован со слешем; `/metrics`
+     даёт 307), ни Bearer-авторизацию (метрики за master-key — 401 без ключа). Поэтому свой манифест:
+     `authorization.credentials` берёт токен из секрета `litellm-masterkey` (его читает prometheus-operator,
+     RBAC `secrets:*`, и подставляет в конфиг — самому Prometheus доступ к секретам в llm-stand не нужен).
+     Применяется в `deploy-litellm`, удаляется в `teardown`.
+
+- **Наблюдаемость — три уровня** (всё на дашборде LLM Stand): ресурсы подов (cAdvisor/kube-state),
+  HTTP-метрики ingress-nginx по host'у `llm.` (`controller.metrics`+ServiceMonitor, RPS/латентность/коды),
+  app-метрики LiteLLM (`litellm_settings.callbacks: ["prometheus"]` → `/metrics`, запросы/токены/латентность
+  по моделям). Prometheus kube-prometheus-stack скрейпит ServiceMonitor'ы с меткой `release: monitoring`.
+  В образе `main-stable` метрики LiteLLM доступны без enterprise-лицензии (проверено).
 - **StorageClass** в values оставлен пустым (`""`) => default TimeWeb CSI. Если в кластере нет
   default-класса, задавать `storageClass`/`storageClassName` явно (в файлах есть комментарии где).
 - **Persistence** включена для Ollama (модели), Prometheus (метрики), Grafana (дашборды) —

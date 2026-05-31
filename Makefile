@@ -53,6 +53,8 @@ deploy-ollama: namespace
 deploy-litellm: namespace
 	helm upgrade --install litellm oci://ghcr.io/berriai/litellm-helm \
 		-n $(NS) -f helm/litellm-values.yaml -f helm/secrets.local.yaml --wait --timeout 10m
+	@echo "== ServiceMonitor для /metrics LiteLLM (path /metrics/ + Bearer из секрета) =="
+	kubectl apply -f manifests/litellm-servicemonitor.yaml
 
 deploy-openwebui: namespace
 	helm upgrade --install openwebui open-webui/open-webui \
@@ -96,6 +98,7 @@ loadtest:
 	k6 run -e BASE_URL=$(BASE_URL) -e API_KEY=$(API_KEY) loadtest/load.js
 
 teardown:
+	-kubectl delete -f manifests/litellm-servicemonitor.yaml
 	-helm uninstall openwebui -n $(NS)
 	-helm uninstall litellm -n $(NS)
 	-helm uninstall ollama -n $(NS)

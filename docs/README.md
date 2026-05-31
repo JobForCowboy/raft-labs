@@ -12,7 +12,9 @@
 - `screenshots/` — скриншоты, снятые **вручную** (на них ссылается `walkthrough.md`):
   - `openwebui-models.png` — выпадашка OpenWebUI с обеими моделями (`qwen2.5:0.5b`, `llama3.2:1b`).
   - `openwebui-chat.png` — рабочий чат (ответ хотя бы на одной модели).
-  - `grafana-peak-k6.png` — дашборд Grafana (CPU/RAM подов Ollama/LiteLLM) на пике нагрузки k6.
+  - `grafana-resources.png` — дашборд LLM Stand: ресурсы подов (CPU/RAM/рестарты/готовность) на пике k6.
+  - `grafana-llm-api.png` — ряд **LLM API (ingress-nginx)**: RPS по кодам, латентность p50/p90/p95, доля 5xx.
+  - `grafana-litellm.png` — ряд **LiteLLM**: запросы/токены/латентность по моделям (метрики прокси).
   - `k6-run.png` — итог прогона k6 в терминале (`http_req_failed 0%`).
 
 ## Куда смотреть в Grafana

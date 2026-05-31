@@ -114,12 +114,24 @@ service-level наблюдаемость самого тракта, а не то
 
 ![OpenWebUI: рабочий чат](screenshots/openwebui-chat.png)
 
-### Grafana — ресурсы подов на пике k6
+### Grafana — дашборд LLM Stand на пике k6
 
-Дашборд **LLM Stand** во время прогона: видно, как растёт CPU подов Ollama/LiteLLM (узлы 2 vCPU),
-рестартов нет, все поды `Ready`.
+Дашборд **LLM Stand — ресурсы и API** во время прогона, три уровня наблюдаемости.
 
-![Grafana: ресурсы подов под нагрузкой](screenshots/grafana-peak-k6.png)
+**1. Ресурсы подов.** Видно «горб» CPU подов Ollama/LiteLLM под нагрузкой (узлы 2 vCPU),
+рестартов нет (`0`), все поды `Ready`.
+
+![Grafana: ресурсы подов под нагрузкой](screenshots/grafana-resources.png)
+
+**2. LLM API (ingress-nginx).** HTTP-метрики того же пути, что нагружает k6: RPS по кодам
+ответа (200/307), латентность p50/p90/p95, доля 5xx = **0%**.
+
+![Grafana: HTTP-метрики LLM API через ingress](screenshots/grafana-llm-api.png)
+
+**3. LiteLLM (метрики прокси).** App-метрики самого LiteLLM **по моделям**: запросы (RPS),
+токены, латентность обращения к модели p95.
+
+![Grafana: app-метрики LiteLLM по моделям](screenshots/grafana-litellm.png)
 
 ---
 

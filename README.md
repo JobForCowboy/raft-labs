@@ -44,7 +44,7 @@ Grafana     ──query──→  Prometheus
 
 | Аспект | Решение |
 |---|---|
-| Платформа | Managed Kubernetes на TimeWeb Cloud, 1 узел 8 ГБ / 4 vCPU |
+| Платформа | Managed Kubernetes на TimeWeb Cloud, 2 узла × 2 vCPU / 4 ГБ (СПб) |
 | GPU | Не нужен — инференс на CPU |
 | Модели | `qwen2.5:0.5b`, `llama3.2:1b` через Ollama |
 | Доступ к UI/Grafana/LiteLLM | Один `LoadBalancer` (ingress-nginx) → host-роутинг по HTTPS |
@@ -100,7 +100,10 @@ Grafana     ──query──→  Prometheus
 
 Локально нужны `kubectl`, `helm` (v3.8+, для OCI-чартов) и `k6`.
 
-1. **Создать кластер** в панели TimeWeb Cloud: managed Kubernetes, 1 узел `8 ГБ RAM / 4 vCPU`.
+1. **Создать кластер** в панели TimeWeb Cloud: managed Kubernetes, `2 узла × 2 vCPU / 4 ГБ`
+   (СПб — для сетевых дисков CSI). Два узла нужны, чтобы воспроизвести сценарий из раздела
+   «Результаты»: anti-affinity разводит Ollama и LiteLLM/Grafana по разным узлам — на одном
+   узле находка про вытеснение Ollama под нагрузкой не повторится.
 2. Скачать kubeconfig и активировать:
    ```bash
    export KUBECONFIG=$PWD/kubeconfig

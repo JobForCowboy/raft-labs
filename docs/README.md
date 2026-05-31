@@ -13,6 +13,7 @@
   - `openwebui-models.png` — выпадашка OpenWebUI с обеими моделями (`qwen2.5:0.5b`, `llama3.2:1b`).
   - `openwebui-chat.png` — рабочий чат (ответ хотя бы на одной модели).
   - `grafana-peak-k6.png` — дашборд Grafana (CPU/RAM подов Ollama/LiteLLM) на пике нагрузки k6.
+  - `k6-run.png` — итог прогона k6 в терминале (`http_req_failed 0%`).
 
 ## Куда смотреть в Grafana
 

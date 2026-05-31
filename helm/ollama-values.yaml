@@ -37,13 +37,38 @@ persistentVolume:
 
 # Ноды TimeWeb: 2 vCPU / ~4Gi каждая. Под держим в пределах одной ноды.
 # Инференс упирается в CPU — отдаём ему основную долю ядер, mem-limit ниже размера ноды.
+# memory request поднят до 2Gi (ближе к реальному потреблению с обеими моделями + KV-кэш):
+# при memory pressure на узле kubelet вытесняет поды, превышающие свой request, — заниженный
+# request делал Ollama первым кандидатом на eviction под нагрузкой (наблюдали отказ k6).
 resources:
   requests:
     cpu: "1"
-    memory: 1536Mi
+    memory: 2Gi
   limits:
     cpu: "2"
     memory: 3Gi
+
+# Anti-affinity: на 2-узловом кластере держим Ollama подальше от других «тяжёлых» подов
+# (LiteLLM и Grafana), чтобы их суммарные limit'ы не переподписывали один узел 4Gi и не
+# провоцировали eviction под нагрузкой. Правила preferred (мягкие) — планировщик не блокирует
+# размещение, если развести не удаётся.
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: litellm
+      - weight: 50
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          namespaces:
+            - monitoring
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
 
 # Модели грузятся не мгновенно — щадящие пробы, чтобы под не убивали при прогреве.
 livenessProbe:

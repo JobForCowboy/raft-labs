@@ -116,6 +116,11 @@ annotation `cert-manager.io/cluster-issuer: letsencrypt-prod`. На litellm/open
   default-класса, задавать `storageClass`/`storageClassName` явно (в файлах есть комментарии где).
 - **Persistence** включена для Ollama (модели), Prometheus (метрики), Grafana (дашборды) —
   переживает рестарт пода. При полном удалении кластера тома могут уйти вместе с ним.
+- **Размещение Ollama** (`helm/ollama-values.yaml`): `requests.memory: 2Gi` + soft `podAntiAffinity`
+  против LiteLLM и Grafana. Под нагрузкой на узле 2 vCPU / 4 ГБ, где Ollama соседствовал с ними,
+  возникало memory pressure → kubelet вытеснял Ollama (заниженный request делал его первым
+  кандидатом) → холодный старт с перезагрузкой моделей → каскад `HTTP 500` в k6. Не откатывать
+  без причины: это лечит отказ под нагрузкой без увеличения железа.
 - **k6 бьёт напрямую в LiteLLM** (`https://llm.raft.rootcrops.tech` через ingress), а не через
   OpenWebUI — это узкое место тракта (CPU-инференс). `handleSummary` пишет результат в
   `docs/k6-summary.txt` автоматически.
